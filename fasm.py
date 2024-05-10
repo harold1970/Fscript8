@@ -1,5 +1,5 @@
 import sys
-
+import os
 """
 00: NOP - Nothing
 01: HLT - Halt program
@@ -63,12 +63,12 @@ def help():
 	print('17: JNZ A, [d8] Jump if accumulator is not 0')
 	print('18: CLR [r] - Clear a register')
 	print('19: INP [id] - Store INPUT id in accumulator')
-	print('1A: MOV pA, [r] - Move the value at address A register r')
-	print('1B: MOV [r], pA - Move register r into address A')
-	print('1C: MOV [p], A - Move a value in a pointer to the accumulator') #
-	print('1D: MOV A, [p] - Move the accumulator to a location') 
-	print('1E: MLT [r], A - Multiply register r by the accumulator')
-	print('1F: DIV [r], A - Divide register r by accumulator')
+	print('1A: MOV pA, [r] - Move the value at address A register r') #26
+	print('1B: MOV [r], pA - Move register r into address A') # 27
+	print('1C: MOV [p], A - Move a value in a pointer to the accumulator') # 28
+	print('1D: MOV A, [p] - Move the accumulator to a location') # 29
+	print('1E: MLT [r], A - Multiply register r by the accumulator') # 30
+	print('1F: DIV [r], A - Divide register r by accumulator') 
 	print("type 'compile' to compile your scripts, else type 'help' to see the commands.")
 	
 	
@@ -87,41 +87,44 @@ def getRegister(register):
 
 size = 0
 pc = 0
-commands = ['hlt', 'out', 'lda', 'mov', 'inc', 'dec', 'add', 'sub', 'and', 'ior', 'xor', 'not', 'sar', 'sal', 'jup', 'jpp', 'jpl','jzo','jpg','jle','jge','jnz','_', 'exit', 'help','//','']
+commands = ['hlt', 'out', 'lda', 'mov', 'inc', 'dec', 'add', 'sub', 'and', 'ior', 'xor', 'not', 'sar', 'sal', 'jup', 'jpp', 'inp', 'jpl','jzo','jpg','jle','jge','jnz','_', 'exit', 'help','//','']
 script = []
 
-filename = sys.argv[1]
-output = sys.argv[2]
+filename = "array test.txt"
+output = "out.txt"
 with open(filename, 'r') as rawFile:
 	rawFile = rawFile.read()
 	cleanFile = rawFile.replace('\n', '')
 
 print("type 'help' for list of commands and uses")
 
-while True:
-	userInput  = input("> ")
-	if userInput == 'help':
-		help()
-	elif userInput == 'compile':
-		break
-	elif userInput == 'cancel':
-		exit()
+# while True:
+# 	userInput  = input("> ")
+# 	if userInput == 'help':
+# 		help()
+# 	elif userInput == 'compile':
+# 		break
+# 	elif userInput == 'cancel':
+# 		exit()
 
 labelCounter = 0
 lines = cleanFile.split(";")
 labels = {}
-
+registers = ['r0','r1','r2','r3']
 for line in lines:
+	line = line.lstrip()
 	line = line.lower()
 	components = line.split(" ")
 	if components[0] == '_':
 		labels.update({components[1] : pc})
-	pc += 1		
+	pc += 1	
+
 
 for line in lines:
+	line = line.lstrip()
 	line = line.lower()
 	components = line.split(" ")
-
+	
 	print(components)
 	if components[0] not in commands:
 		print(f'unknown memonic {components[0]}')
@@ -131,9 +134,9 @@ for line in lines:
 		if components[0] == 'hlt':
 			script.append('1')
 			size += 8		
-		
+
 		if components[0] == 'out': 
-			script.append(f'2 {components[1]}')
+			script.append(f'2 {components[1]}')	
 			size += 16		
 		
 		if components[0] == 'lda':
@@ -145,26 +148,27 @@ for line in lines:
 		
 		if components[0] == 'mov':
 			moveTo = components[1]
-			moveFrom = components[2] 
+			moveFrom = components[2]
 			
-			if moveTo == 'a':
-				r = getRegister(components[2])
-				script.append(f'5 {r}')
-			if moveFrom == '*a':
-				script.append(f'26 {moveTo}')
-			if moveTo == '*a':
-				r = getRegister(moveFrom)
-				script.append(f'27 {r}')
-			if moveTo[0] == '*':
-				script.append(f'28 {moveTo[1:]}')
-			if moveFrom == 'a':
-				r = getRegister(moveTo)
-				script.append(f'29 {r}')
-			if moveFrom == 'a' and moveTo == getRegister != False:
-				r = getRegister(components[1])
-				script.append(f'4 {r}')
-			size += 16;	
-		
+			if moveTo == 'ax' and moveFrom in registers:
+				script.append(f"5 {getRegister(moveFrom)}")
+
+			if moveFrom == 'ax' and moveTo in registers:
+				script.append(f"4 {getRegister(moveTo)}")
+
+			if moveFrom == 'pax' and moveTo in registers:
+				script.append(f"26 {getRegister(moveTo)}")
+			
+			if moveTo == 'pax' and moveTo in registers:
+				script.append(f"27 {getRegister(moveFrom)}")
+
+			if moveFrom[0] == '*' and moveTo == 'ax':
+				script.append(f"28 {moveFrom[1:]}")
+			# checks the first thing in the MoveTo variable to see if ptr
+			if moveTo[0] == '*' and moveFrom == 'ax':
+				script.append(f"29 {moveTo[1:]}")
+
+
 		if components[0] == 'inc':
 			r = getRegister(components[1])
 			script.append(f'6 {r}')		
@@ -183,7 +187,7 @@ for line in lines:
 			r = getRegister(components[1])
 			script.append(f'9 {r}')
 			size += 16		
-		
+	
 		if components[0] == 'and':
 			r = getRegister(components[1])
 			script.append(f'10 {r}')
@@ -213,47 +217,41 @@ for line in lines:
 			size += 16
 		
 		if components[0] == 'jup':
-			la = labels.get(components[1])
-			la -= 1
+			la = labels.get(components[1]) # minus one because of a issue in the cpu
 			script.append(f'16 {la}')
 		
 		if components[0] == 'jpp':
-			la = labels.get(components[1])
-			la -= 1
+			la = labels.get(components[1]) 
 			script.append(f'17 {la}')
 		
 		if components[0] == 'jpl':
-			la = labels.get(components[1] )
-			la -= 1
+			la = labels.get(components[1] ) 
 			script.append(f'18 {la}')
 		
 		if components[0] == 'jzo':
 			la = labels.get(components[1] )
-			la -= 1
 			script.append(f'19 {la}')
 
 		if components[0] == 'jpg':
-			la = labels.get(components[1] )
-			la -= 1
+			la = labels.get(components[1] ) 
 			script.append(f'20 {la}')
 
 		if components[0] == 'jle':
-			la = labels.get(components[1])
-			la -= 1
+			la = labels.get(components[1]) 
 			script.append(f'21 {la}')
 
 		if components[0] == 'jge':
-			la = labels.get(components[1] )
-			la -= 1
+			la = labels.get(components[1] ) 
 			script.append(f'22 {la}')
+		
 		if components[0] == 'jnz':
 			la = labels.get(components[1] )
-			la -= 1
 			script.append(f'23 {la}')
+		
 		if components[0] == 'clr':
 			r = getRegister(components[1])	
-			la -= 1 	
 			script.append(f'24 {r}')
+		
 		if components[0] == 'inp':
 			script.append(f'25 {components[1]}')
 		
